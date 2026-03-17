@@ -7,6 +7,7 @@ export function hitTestElement(point: Point, el: CanvasElement): boolean {
   switch (el.type) {
     case 'rectangle':
     case 'text':
+    case 'image':
       return isPointInRect(point, { x: el.x, y: el.y, width: el.width, height: el.height })
     case 'ellipse':
       return isPointInEllipse(point, { x: el.x, y: el.y, width: el.width, height: el.height })
@@ -50,6 +51,22 @@ export function hitTestResizeHandle(point: Point, el: CanvasElement, zoom: numbe
     }
   }
   return null
+}
+
+export function hitTestRotationHandle(point: Point, el: CanvasElement, zoom: number): boolean {
+  const bounds = getElementBounds(el)
+  const size = HANDLE_SIZE / zoom
+  const handlePos = {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y - 30 / zoom,
+  }
+
+  return (
+    point.x >= handlePos.x - size &&
+    point.x <= handlePos.x + size &&
+    point.y >= handlePos.y - size &&
+    point.y <= handlePos.y + size
+  )
 }
 
 export function getResizeHandleCursor(handle: ResizeHandle): string {

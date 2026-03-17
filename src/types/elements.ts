@@ -1,4 +1,4 @@
-export type ElementType = 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'freehand' | 'text'
+export type ElementType = 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'freehand' | 'text' | 'image'
 
 export type Tool = 'select' | 'eraser' | ElementType
 
@@ -29,6 +29,10 @@ export interface CanvasElement {
   points?: number[][]
   text?: string
   fontSize?: number
+  src?: string // For image elements (base64 or URL)
+  name?: string // Optional name for elements
+  visible?: boolean // Visibility toggle
+  locked?: boolean // Lock toggle
   createdBy: string
   createdAt: number
   zIndex: number

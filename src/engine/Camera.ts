@@ -14,6 +14,12 @@ export class Camera {
     return { x: this.x, y: this.y, zoom: this.zoom }
   }
 
+  setState(state: CameraState) {
+    this.x = state.x
+    this.y = state.y
+    this.zoom = state.zoom
+  }
+
   screenToWorld(screenX: number, screenY: number): Point {
     return {
       x: (screenX - this.x) / this.zoom,

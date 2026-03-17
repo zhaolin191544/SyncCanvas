@@ -2,144 +2,129 @@
 
 import { useState } from 'react'
 import type { CanvasElement } from '@/types/elements'
+import { useLanguage } from '@/contexts/LanguageContext'
+import { motion } from 'framer-motion'
+import { 
+  Lock, 
+  Unlock, 
+  Settings2, 
+  Maximize, 
+  Move,
+} from 'lucide-react'
 
 interface PropertyPanelProps {
   selectedElements: CanvasElement[]
   onUpdate: (id: string, updates: Partial<CanvasElement>) => void
-  version: number  // increment to force re-render
+  version: number
 }
 
 export default function PropertyPanel({ selectedElements, onUpdate, version }: PropertyPanelProps) {
+  const { t } = useLanguage()
   if (selectedElements.length === 0) return null
 
   const el = selectedElements[0]
   const multi = selectedElements.length > 1
+  const isImage = el.type === 'image'
 
   return (
-    <div className="absolute top-56 right-4 z-10 w-56 rounded-xl bg-white shadow-lg border border-gray-200 overflow-hidden">
-      <div className="px-3 py-2 text-xs font-medium text-gray-500 bg-gray-50 border-b border-gray-100">
-        {multi ? `${selectedElements.length} 个元素` : el.type}
-      </div>
-
-      <div className="p-3 space-y-3">
-        {/* Stroke Color */}
-        <PropertyRow label="描边颜色">
-          <ColorInput
-            value={el.strokeColor}
-            onChange={(v) => {
-              for (const e of selectedElements) onUpdate(e.id, { strokeColor: v })
-            }}
-          />
-        </PropertyRow>
-
-        {/* Fill Color */}
-        {el.type !== 'line' && el.type !== 'arrow' && el.type !== 'freehand' && (
-          <PropertyRow label="填充颜色">
-            <ColorInput
-              value={el.fillColor}
-              onChange={(v) => {
-                for (const e of selectedElements) onUpdate(e.id, { fillColor: v })
-              }}
-            />
-          </PropertyRow>
-        )}
-
-        {/* Stroke Width */}
-        <PropertyRow label="线宽">
-          <input
-            type="range"
-            min="1"
-            max="20"
-            value={el.strokeWidth}
-            onChange={(e) => {
-              const v = Number(e.target.value)
-              for (const sel of selectedElements) onUpdate(sel.id, { strokeWidth: v })
-            }}
-            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-          <span className="text-xs text-gray-400 min-w-[24px] text-right">{el.strokeWidth}</span>
-        </PropertyRow>
-
-        {/* Opacity */}
-        <PropertyRow label="透明度">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(el.opacity * 100)}
-            onChange={(e) => {
-              const v = Number(e.target.value) / 100
-              for (const sel of selectedElements) onUpdate(sel.id, { opacity: v })
-            }}
-            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-          <span className="text-xs text-gray-400 min-w-[30px] text-right">{Math.round(el.opacity * 100)}%</span>
-        </PropertyRow>
-
-        {/* Font Size (text only) */}
-        {el.type === 'text' && !multi && (
-          <PropertyRow label="字号">
-            <input
-              type="number"
-              min="8"
-              max="144"
-              value={el.fontSize || 16}
-              onChange={(e) => {
-                onUpdate(el.id, { fontSize: Number(e.target.value) })
-              }}
-              className="w-16 px-2 py-1 text-xs border border-gray-200 rounded-md outline-none focus:border-blue-500"
-            />
-          </PropertyRow>
-        )}
-
-        {/* Position */}
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+      className="absolute top-24 right-6 z-40 w-64 rounded-3xl bg-white border border-stone-200 shadow-[0_12px_40px_rgba(0,0,0,0.08)] overflow-hidden font-sans"
+    >
+      <div className="px-5 py-4 border-b border-stone-50 flex items-center justify-between">
+        <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+          {multi ? `${selectedElements.length} ${t.selected}` : el.type}
+        </h3>
         {!multi && (
-          <PropertyRow label="位置">
-            <span className="text-xs text-gray-400">
-              {Math.round(el.x)}, {Math.round(el.y)}
-            </span>
-          </PropertyRow>
-        )}
-
-        {/* Size */}
-        {!multi && el.type !== 'freehand' && (
-          <PropertyRow label="尺寸">
-            <span className="text-xs text-gray-400">
-              {Math.round(Math.abs(el.width))} × {Math.round(Math.abs(el.height))}
-            </span>
-          </PropertyRow>
+          <button 
+            onClick={() => onUpdate(el.id, { locked: !el.locked })}
+            className={`p-1.5 rounded-lg transition-all ${el.locked ? 'bg-stone-900 text-white' : 'text-stone-300 hover:text-stone-900 hover:bg-stone-50'}`}
+          >
+            {el.locked ? <Lock size={12}/> : <Unlock size={12}/>}
+          </button>
         )}
       </div>
+
+      <div className="p-5 space-y-6">
+        {/* Stroke & Fill */}
+        {!isImage && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold text-stone-400 uppercase">{t.stroke}</label>
+              <ColorInput value={el.strokeColor} onChange={(v) => selectedElements.forEach(e => onUpdate(e.id, { strokeColor: v }))} />
+            </div>
+            {el.type !== 'line' && el.type !== 'arrow' && el.type !== 'freehand' && (
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold text-stone-400 uppercase">{t.fill}</label>
+                <ColorInput value={el.fillColor} onChange={(v) => selectedElements.forEach(e => onUpdate(e.id, { fillColor: v }))} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sliders */}
+        <div className="space-y-4">
+          {!isImage && (
+            <PropertySlider label={t.width} value={el.strokeWidth} min={0} max={20} onChange={(v) => selectedElements.forEach(e => onUpdate(e.id, { strokeWidth: v }))} suffix="px" />
+          )}
+          <PropertySlider label={t.opacity} value={Math.round(el.opacity * 100)} min={0} max={100} onChange={(v) => selectedElements.forEach(e => onUpdate(e.id, { opacity: v / 100 }))} suffix="%" />
+        </div>
+
+        {/* Text Size */}
+        {el.type === 'text' && !multi && (
+          <div className="space-y-2 pt-2 border-t border-stone-50">
+            <label className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">{t.size}</label>
+            <input type="number" value={el.fontSize || 16} onChange={(e) => onUpdate(el.id, { fontSize: Number(e.target.value) })} onKeyDown={(e) => e.stopPropagation()} className="w-full bg-stone-50 border border-stone-100 rounded-xl px-3 py-2 text-xs font-medium outline-none focus:border-stone-900" />
+          </div>
+        )}
+
+        {/* Stats */}
+        {!multi && (
+          <div className="pt-4 border-t border-stone-50 grid grid-cols-2 gap-y-3">
+            <StatItem label="X" value={Math.round(el.x)} />
+            <StatItem label="Y" value={Math.round(el.y)} />
+            {el.type !== 'freehand' && (
+              <>
+                <StatItem label="W" value={Math.round(Math.abs(el.width))} />
+                <StatItem label="H" value={Math.round(Math.abs(el.height))} />
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
+function PropertySlider({ label, value, min, max, onChange, suffix }: any) {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <label className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">{label}</label>
+        <span className="text-[9px] font-bold text-stone-900">{value}{suffix}</span>
+      </div>
+      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full h-1 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-stone-900" />
     </div>
   )
 }
 
-function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
+function StatItem({ label, value }: any) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500 min-w-[52px] shrink-0">{label}</span>
-      <div className="flex items-center gap-1.5 flex-1">
-        {children}
-      </div>
+      <span className="text-[9px] font-bold text-stone-300 w-3">{label}</span>
+      <span className="text-[10px] font-medium text-stone-600 font-mono">{value}</span>
     </div>
   )
 }
 
 function ColorInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <input
-        type="color"
-        value={value === 'transparent' ? '#ffffff' : value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-7 h-7 rounded border border-gray-200 cursor-pointer p-0.5"
-      />
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-[72px] px-1.5 py-1 text-xs border border-gray-200 rounded-md outline-none focus:border-blue-500 font-mono"
-      />
+    <div className="relative w-full h-8 rounded-lg border border-stone-200 overflow-hidden group">
+      <input type="color" value={value === 'transparent' ? '#ffffff' : value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 w-full h-full cursor-pointer opacity-0" />
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center bg-white">
+        <div className="w-4 h-4 rounded-full border border-stone-100 shadow-sm" style={{ backgroundColor: value === 'transparent' ? 'white' : value }} />
+        {value === 'transparent' && <div className="absolute w-full h-px bg-red-400 rotate-45 scale-x-50" />}
+      </div>
     </div>
   )
 }

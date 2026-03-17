@@ -13,6 +13,7 @@ interface YjsContextValue {
   ydoc: Y.Doc
   yElements: Y.Map<Y.Map<unknown>>
   yOrder: Y.Array<string>
+  yMetadata: Y.Map<unknown>
   provider: WebsocketProvider | null
   awareness: WebsocketProvider['awareness'] | null
   connectionStatus: ConnectionStatus
@@ -106,6 +107,7 @@ export function YjsProviderComponent({ roomId, children, wsUrl }: YjsProviderPro
     ydoc,
     yElements: ydoc.getMap('elements') as Y.Map<Y.Map<unknown>>,
     yOrder: ydoc.getArray('elementOrder'),
+    yMetadata: ydoc.getMap('metadata'),
     provider: providerRef.current,
     awareness: providerRef.current?.awareness || null,
     connectionStatus,

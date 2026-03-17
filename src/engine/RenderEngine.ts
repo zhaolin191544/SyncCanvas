@@ -7,6 +7,7 @@ import { drawLine } from './elements/Line'
 import { drawArrow } from './elements/Arrow'
 import { drawFreehand } from './elements/Freehand'
 import { drawText } from './elements/Text'
+import { drawImage } from './elements/Image'
 import { SELECTION_COLOR, GRID_COLOR } from '@/utils/colors'
 import { getElementBounds, boundsOverlap } from '@/utils/math'
 
@@ -182,6 +183,7 @@ export class RenderEngine {
   }
 
   private drawElement(ctx: CanvasRenderingContext2D, el: CanvasElement) {
+    if (el.visible === false) return
     ctx.save()
     switch (el.type) {
       case 'rectangle': drawRectangle(ctx, el); break
@@ -190,6 +192,7 @@ export class RenderEngine {
       case 'arrow': drawArrow(ctx, el); break
       case 'freehand': drawFreehand(ctx, el); break
       case 'text': drawText(ctx, el); break
+      case 'image': drawImage(ctx, el); break
     }
     ctx.restore()
   }
@@ -230,6 +233,22 @@ export class RenderEngine {
       ctx.fillRect(h.x - size / 2, h.y - size / 2, size, size)
       ctx.strokeRect(h.x - size / 2, h.y - size / 2, size, size)
     }
+
+    // Draw rotation handle
+    const rotateHandlePos = { x: bounds.x + bounds.width / 2, y: bounds.y - 30 / this.camera.zoom }
+    ctx.beginPath()
+    ctx.moveTo(bounds.x + bounds.width / 2, bounds.y)
+    ctx.lineTo(rotateHandlePos.x, rotateHandlePos.y)
+    ctx.strokeStyle = SELECTION_COLOR
+    ctx.lineWidth = 1 / this.camera.zoom
+    ctx.stroke()
+
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(rotateHandlePos.x, rotateHandlePos.y, size * 0.8, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    
     ctx.restore()
   }
 

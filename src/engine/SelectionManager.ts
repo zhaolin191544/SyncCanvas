@@ -14,9 +14,21 @@ export class SelectionManager {
     this.selectedIds.delete(id)
   }
 
-  clearSelection() {
+  toggle(id: string) {
+    if (this.selectedIds.has(id)) {
+      this.selectedIds.delete(id)
+    } else {
+      this.selectedIds.add(id)
+    }
+  }
+
+  clear() {
     this.selectedIds.clear()
     this.selectionBox = null
+  }
+
+  clearSelection() {
+    this.clear()
   }
 
   selectAll(elements: Map<string, CanvasElement>) {

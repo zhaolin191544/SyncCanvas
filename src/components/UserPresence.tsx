@@ -1,6 +1,7 @@
 'use client'
 
 import type { RemoteUser } from '@/collaboration/useAwareness'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface UserPresenceProps {
   localUser: { name: string; color: string }
@@ -14,20 +15,25 @@ export default function UserPresence({ localUser, remoteUsers }: UserPresencePro
   ]
 
   return (
-    <div className="absolute top-4 left-4 z-10 flex items-center gap-1">
-      {allUsers.map((user, i) => (
-        <div
-          key={i}
-          className="relative flex items-center justify-center w-8 h-8 rounded-full text-white text-xs font-semibold shadow-sm ring-2 ring-white"
-          style={{ backgroundColor: user.color, marginLeft: i > 0 ? '-4px' : '0' }}
-          title={`${user.name}${user.isLocal ? ' (you)' : ''}`}
-        >
-          {user.name.charAt(0).toUpperCase()}
-        </div>
-      ))}
-      <span className="ml-2 rounded-full bg-white/90 backdrop-blur-sm px-2.5 py-1 text-xs font-medium text-gray-500 shadow-sm border border-gray-200/80">
-        {allUsers.length} online
-      </span>
+    <div className="absolute top-6 right-36 z-50 flex items-center -space-x-2">
+      <AnimatePresence>
+        {allUsers.map((user, i) => (
+          <motion.div
+            key={`${user.name}-${i}`}
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            whileHover={{ y: -2, zIndex: 50 }}
+            className="relative flex items-center justify-center w-8 h-8 rounded-full text-white text-[10px] font-bold shadow-sm ring-2 ring-[#fdfdfc] transition-all cursor-default overflow-hidden group"
+            style={{ backgroundColor: user.color, zIndex: 10 - i }}
+          >
+            <span className="uppercase">{user.name.charAt(0)}</span>
+            
+            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-stone-900 text-[8px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+              {user.name} {user.isLocal && '(You)'}
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   )
 }

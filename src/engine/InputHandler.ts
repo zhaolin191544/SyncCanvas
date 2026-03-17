@@ -1,9 +1,9 @@
 import type { CanvasElement, Tool, Point, ResizeHandle } from '@/types/elements'
 import { RenderEngine } from './RenderEngine'
-import { hitTestElement, hitTestResizeHandle, getResizeHandleCursor } from './HitTest'
+import { hitTestElement, hitTestResizeHandle, getResizeHandleCursor, hitTestRotationHandle } from './HitTest'
 import { generateId } from '@/utils/id'
 import { DEFAULT_STROKE_COLOR, DEFAULT_FILL_COLOR, DEFAULT_STROKE_WIDTH } from '@/utils/colors'
-import { normalizeRect } from '@/utils/math'
+import { normalizeRect, getElementBounds } from '@/utils/math'
 
 export type InputHandlerCallbacks = {
   onSelectionChange?: (ids: Set<string>) => void
@@ -27,6 +27,7 @@ export class InputHandler {
   private isPanning: boolean = false
   private isDragging: boolean = false
   private isResizing: boolean = false
+  private isRotating: boolean = false
   private startWorldPos: Point = { x: 0, y: 0 }
   private lastScreenPos: Point = { x: 0, y: 0 }
   private currentResizeHandle: ResizeHandle | null = null
@@ -174,9 +175,12 @@ export class InputHandler {
     // Check if double-clicked on existing text
     const sorted = this.engine.getSortedElements().reverse()
     for (const el of sorted) {
-      if (el.type === 'text' && hitTestElement(worldPos, el)) {
-        this.callbacks.onTextEdit?.(el, { x: e.clientX, y: e.clientY })
-        return
+      if (el.locked) continue
+      if (hitTestElement(worldPos, el)) {
+        if (el.type === 'text') {
+          this.callbacks.onTextEdit?.(el, { x: e.clientX, y: e.clientY })
+          return
+        }
       }
     }
 
@@ -193,6 +197,9 @@ export class InputHandler {
       fillColor: DEFAULT_FILL_COLOR,
       strokeWidth: DEFAULT_STROKE_WIDTH,
       opacity: 1,
+      visible: true,
+      locked: false,
+      name: '', // Empty name will use type-based default in UI
       text: '',
       fontSize: 16,
       createdBy: 'local',
@@ -405,6 +412,14 @@ export class InputHandler {
       const selectedId = Array.from(this.engine.selection.selectedIds)[0]
       const el = this.engine.elements.get(selectedId)
       if (el) {
+        if (hitTestRotationHandle(worldPos, el, this.engine.camera.zoom)) {
+          if (this.isRotating === undefined) { // In mouseDown
+             this.isRotating = true
+             this.dragStartWorld = { ...worldPos }
+          }
+          this.engine.canvas.style.cursor = 'alias'
+          return
+        }
         const handle = hitTestResizeHandle(worldPos, el, this.engine.camera.zoom)
         if (handle) {
           this.isResizing = true
@@ -421,6 +436,7 @@ export class InputHandler {
     const sorted = this.engine.getSortedElements().reverse()
     let hitElement: CanvasElement | null = null
     for (const el of sorted) {
+      if (el.locked) continue
       if (hitTestElement(worldPos, el)) {
         hitElement = el
         break
@@ -446,6 +462,21 @@ export class InputHandler {
   }
 
   private handleSelectMouseMove(worldPos: Point, screenX: number, screenY: number, e: MouseEvent) {
+    if (this.isRotating && this.engine.selection.selectedIds.size === 1) {
+      const id = Array.from(this.engine.selection.selectedIds)[0]
+      const el = this.engine.elements.get(id)
+      if (el) {
+        const bounds = getElementBounds(el)
+        const centerX = bounds.x + bounds.width / 2
+        const centerY = bounds.y + bounds.height / 2
+        // Calculate angle between center and current mouse position
+        // Adding PI/2 because handle is at top (offset by 90 deg)
+        el.rotation = Math.atan2(worldPos.y - centerY, worldPos.x - centerX) + Math.PI / 2
+        this.engine.markDirty()
+      }
+      return
+    }
+
     if (this.isResizing && this.currentResizeHandle) {
       const totalDx = worldPos.x - this.dragStartWorld.x
       const totalDy = worldPos.y - this.dragStartWorld.y
@@ -481,6 +512,14 @@ export class InputHandler {
       const selectedId = Array.from(this.engine.selection.selectedIds)[0]
       const el = this.engine.elements.get(selectedId)
       if (el) {
+        if (hitTestRotationHandle(worldPos, el, this.engine.camera.zoom)) {
+          if (this.isRotating === undefined) { // In mouseDown
+             this.isRotating = true
+             this.dragStartWorld = { ...worldPos }
+          }
+          this.engine.canvas.style.cursor = 'alias'
+          return
+        }
         const handle = hitTestResizeHandle(worldPos, el, this.engine.camera.zoom)
         if (handle) {
           this.engine.canvas.style.cursor = getResizeHandleCursor(handle)
@@ -501,6 +540,13 @@ export class InputHandler {
   }
 
   private handleSelectMouseUp() {
+    if (this.isRotating) {
+      this.isRotating = false
+      this.callbacks.onElementsMoved?.(this.engine.selection.selectedIds)
+      this.callbacks.onElementsChange?.()
+      return
+    }
+
     if (this.isDragging) {
       this.isDragging = false
       this.callbacks.onElementsMoved?.(this.engine.selection.selectedIds)
@@ -552,6 +598,9 @@ export class InputHandler {
       fillColor: DEFAULT_FILL_COLOR,
       strokeWidth: DEFAULT_STROKE_WIDTH,
       opacity: 1,
+      visible: true,
+      locked: false,
+      name: '',
       createdBy: 'local',
       createdAt: Date.now(),
       zIndex: this.engine.getNextZIndex(),
