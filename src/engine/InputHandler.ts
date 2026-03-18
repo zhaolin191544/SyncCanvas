@@ -1,6 +1,6 @@
 import type { CanvasElement, Tool, Point, ResizeHandle } from '@/types/elements'
 import { RenderEngine } from './RenderEngine'
-import { hitTestElement, hitTestResizeHandle, getResizeHandleCursor, hitTestRotationHandle } from './HitTest'
+import { hitTestElement, hitTestResizeHandle, getResizeHandleCursor, hitTestRotationHandle, hitTestControlPoint } from './HitTest'
 import { generateId } from '@/utils/id'
 import { DEFAULT_STROKE_COLOR, DEFAULT_FILL_COLOR, DEFAULT_STROKE_WIDTH } from '@/utils/colors'
 import { normalizeRect, getElementBounds } from '@/utils/math'
@@ -37,6 +37,10 @@ export class InputHandler {
   // Eraser state
   eraserSize: number = 20
   eraserWorldPos: Point | null = null
+  // Control point dragging state
+  private isDraggingControlPoint: boolean = false
+  private controlPointIndex: number = -1
+  private controlPointElementId: string = ''
 
   constructor(engine: RenderEngine, callbacks: InputHandlerCallbacks = {}) {
     this.engine = engine
@@ -172,6 +176,39 @@ export class InputHandler {
     const screenY = e.clientY - rect.top
     const worldPos = this.engine.camera.screenToWorld(screenX, screenY)
 
+    // Check if double-clicked on a control point (to remove it)
+    if (this.engine.selection.selectedIds.size === 1) {
+      const selectedId = Array.from(this.engine.selection.selectedIds)[0]
+      const el = this.engine.elements.get(selectedId)
+      if (el && (el.type === 'line' || el.type === 'arrow') && el.controlPoints) {
+        const cpIndex = hitTestControlPoint(worldPos, el, this.engine.camera.zoom)
+        if (cpIndex !== null && cpIndex >= 0) {
+          el.controlPoints.splice(cpIndex, 1)
+          if (el.controlPoints.length === 0) el.controlPoints = undefined
+          this.engine.markDirty()
+          this.callbacks.onElementsMoved?.(new Set([el.id]))
+          this.callbacks.onElementsChange?.()
+          return
+        }
+      }
+    }
+
+    // Check if double-clicked on a selected line/arrow to add control point
+    if (this.engine.selection.selectedIds.size === 1) {
+      const selectedId = Array.from(this.engine.selection.selectedIds)[0]
+      const el = this.engine.elements.get(selectedId)
+      if (el && (el.type === 'line' || el.type === 'arrow') && el.controlPoints && el.controlPoints.length > 0) {
+        if (hitTestElement(worldPos, el)) {
+          // Add a new control point at the clicked position
+          el.controlPoints.push([worldPos.x, worldPos.y])
+          this.engine.markDirty()
+          this.callbacks.onElementsMoved?.(new Set([el.id]))
+          this.callbacks.onElementsChange?.()
+          return
+        }
+      }
+    }
+
     // Check if double-clicked on existing text
     const sorted = this.engine.getSortedElements().reverse()
     for (const el of sorted) {
@@ -291,23 +328,41 @@ export class InputHandler {
     const createdElements: CanvasElement[] = []
 
     for (const el of elementsToProcess) {
+      if (el.locked) continue
+      if (el.visible === false) continue
+
+      // Convert all erasable elements to point-based partial erasure
+      let points: number[][] | undefined
+
       if (el.type === 'freehand' && el.points) {
-        // Partial erase: remove points within eraser radius, split into segments
-        const result = this.eraseFreehandPoints(el, worldPos, radius)
-        if (result.removed) {
-          deletedIds.push(el.id)
-          this.engine.elements.delete(el.id)
-          for (const seg of result.segments) {
-            this.engine.addElement(seg)
-            createdElements.push(seg)
-          }
-        }
+        points = el.points
+      } else if (el.type === 'rectangle') {
+        points = this.rectToPoints(el)
+      } else if (el.type === 'ellipse') {
+        points = this.ellipseToPoints(el)
+      } else if (el.type === 'line' || el.type === 'arrow') {
+        points = this.lineToPoints(el)
       } else {
-        // For geometric shapes: delete if eraser circle overlaps
+        // For text/image: delete entirely if overlapping
         const dist = this.distToElement(worldPos, el)
         if (dist <= radius) {
           deletedIds.push(el.id)
           this.engine.elements.delete(el.id)
+        }
+        continue
+      }
+
+      if (!points || points.length < 2) continue
+
+      // Use a temp element with points for partial erasure
+      const tempEl: CanvasElement = { ...el, type: 'freehand', points }
+      const result = this.eraseFreehandPoints(tempEl, worldPos, radius)
+      if (result.removed) {
+        deletedIds.push(el.id)
+        this.engine.elements.delete(el.id)
+        for (const seg of result.segments) {
+          this.engine.addElement(seg)
+          createdElements.push(seg)
         }
       }
     }
@@ -372,6 +427,66 @@ export class InputHandler {
     }
   }
 
+  private rectToPoints(el: CanvasElement): number[][] {
+    const { x, y, width, height } = el
+    const steps = Math.max(4, Math.ceil((2 * (Math.abs(width) + Math.abs(height))) / 4))
+    const points: number[][] = []
+    const w = width, h = height
+    // Top edge
+    for (let i = 0; i <= steps; i++) points.push([x + (w * i) / steps, y])
+    // Right edge
+    for (let i = 1; i <= steps; i++) points.push([x + w, y + (h * i) / steps])
+    // Bottom edge
+    for (let i = steps - 1; i >= 0; i--) points.push([x + (w * i) / steps, y + h])
+    // Left edge
+    for (let i = steps - 1; i >= 1; i--) points.push([x, y + (h * i) / steps])
+    return points
+  }
+
+  private ellipseToPoints(el: CanvasElement): number[][] {
+    const cx = el.x + el.width / 2
+    const cy = el.y + el.height / 2
+    const rx = Math.abs(el.width) / 2
+    const ry = Math.abs(el.height) / 2
+    const segments = Math.max(24, Math.ceil(Math.max(rx, ry) * 0.5))
+    const points: number[][] = []
+    for (let i = 0; i <= segments; i++) {
+      const angle = (2 * Math.PI * i) / segments
+      points.push([cx + rx * Math.cos(angle), cy + ry * Math.sin(angle)])
+    }
+    return points
+  }
+
+  private lineToPoints(el: CanvasElement): number[][] {
+    const x1 = el.x, y1 = el.y
+    const x2 = el.x + el.width, y2 = el.y + el.height
+
+    if (el.controlPoints && el.controlPoints.length > 0) {
+      // Sample points along the bezier curve
+      const cp = el.controlPoints[0]
+      const steps = 40
+      const points: number[][] = []
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps
+        const invT = 1 - t
+        // Quadratic bezier: B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2
+        const px = invT * invT * x1 + 2 * invT * t * cp[0] + t * t * x2
+        const py = invT * invT * y1 + 2 * invT * t * cp[1] + t * t * y2
+        points.push([px, py])
+      }
+      return points
+    }
+
+    const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    const steps = Math.max(4, Math.ceil(len / 4))
+    const points: number[][] = []
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      points.push([x1 + (x2 - x1) * t, y1 + (y2 - y1) * t])
+    }
+    return points
+  }
+
   private distToElement(pos: Point, el: CanvasElement): number {
     if (el.type === 'line' || el.type === 'arrow') {
       const x1 = el.x, y1 = el.y
@@ -407,7 +522,31 @@ export class InputHandler {
   // --- Select tool handlers ---
 
   private handleSelectMouseDown(worldPos: Point, shiftKey: boolean) {
-    // Check resize handles first (only for single selection)
+    // Check control points first (for lines/arrows)
+    if (this.engine.selection.selectedIds.size === 1) {
+      const selectedId = Array.from(this.engine.selection.selectedIds)[0]
+      const el = this.engine.elements.get(selectedId)
+      if (el && (el.type === 'line' || el.type === 'arrow')) {
+        const cpIndex = hitTestControlPoint(worldPos, el, this.engine.camera.zoom)
+        if (cpIndex !== null) {
+          this.isDraggingControlPoint = true
+          this.controlPointElementId = el.id
+          if (cpIndex === -1) {
+            // Create new control point at midpoint
+            const mx = (el.x + (el.x + el.width)) / 2
+            const my = (el.y + (el.y + el.height)) / 2
+            el.controlPoints = [[mx, my]]
+            this.controlPointIndex = 0
+          } else {
+            this.controlPointIndex = cpIndex
+          }
+          this.engine.canvas.style.cursor = 'grab'
+          return
+        }
+      }
+    }
+
+    // Check resize handles (only for single selection)
     if (this.engine.selection.selectedIds.size === 1) {
       const selectedId = Array.from(this.engine.selection.selectedIds)[0]
       const el = this.engine.elements.get(selectedId)
@@ -462,6 +601,16 @@ export class InputHandler {
   }
 
   private handleSelectMouseMove(worldPos: Point, screenX: number, screenY: number, e: MouseEvent) {
+    // Control point dragging
+    if (this.isDraggingControlPoint) {
+      const el = this.engine.elements.get(this.controlPointElementId)
+      if (el && el.controlPoints && el.controlPoints[this.controlPointIndex]) {
+        el.controlPoints[this.controlPointIndex] = [worldPos.x, worldPos.y]
+        this.engine.markDirty()
+      }
+      return
+    }
+
     if (this.isRotating && this.engine.selection.selectedIds.size === 1) {
       const id = Array.from(this.engine.selection.selectedIds)[0]
       const el = this.engine.elements.get(id)
@@ -512,6 +661,11 @@ export class InputHandler {
       const selectedId = Array.from(this.engine.selection.selectedIds)[0]
       const el = this.engine.elements.get(selectedId)
       if (el) {
+        // Check control point hover
+        if ((el.type === 'line' || el.type === 'arrow') && hitTestControlPoint(worldPos, el, this.engine.camera.zoom) !== null) {
+          this.engine.canvas.style.cursor = 'grab'
+          return
+        }
         if (hitTestRotationHandle(worldPos, el, this.engine.camera.zoom)) {
           if (this.isRotating === undefined) { // In mouseDown
              this.isRotating = true
@@ -540,6 +694,16 @@ export class InputHandler {
   }
 
   private handleSelectMouseUp() {
+    if (this.isDraggingControlPoint) {
+      this.isDraggingControlPoint = false
+      this.engine.canvas.style.cursor = 'default'
+      // Sync element
+      const ids = new Set([this.controlPointElementId])
+      this.callbacks.onElementsMoved?.(ids)
+      this.callbacks.onElementsChange?.()
+      return
+    }
+
     if (this.isRotating) {
       this.isRotating = false
       this.callbacks.onElementsMoved?.(this.engine.selection.selectedIds)

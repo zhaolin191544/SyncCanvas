@@ -69,6 +69,35 @@ export function hitTestRotationHandle(point: Point, el: CanvasElement, zoom: num
   )
 }
 
+/**
+ * Hit test control points on a line/arrow element.
+ * Returns the index of the control point hit, or -1 if the midpoint hint is hit (for creating new control point).
+ * Returns null if nothing hit.
+ */
+export function hitTestControlPoint(point: Point, el: CanvasElement, zoom: number): number | null {
+  if (el.type !== 'line' && el.type !== 'arrow') return null
+  const size = 8 / zoom
+
+  // Check existing control points
+  if (el.controlPoints && el.controlPoints.length > 0) {
+    for (let i = 0; i < el.controlPoints.length; i++) {
+      const cp = el.controlPoints[i]
+      const dx = point.x - cp[0]
+      const dy = point.y - cp[1]
+      if (dx * dx + dy * dy <= size * size) return i
+    }
+  } else {
+    // Check midpoint hint (diamond)
+    const mx = (el.x + (el.x + el.width)) / 2
+    const my = (el.y + (el.y + el.height)) / 2
+    const dx = point.x - mx
+    const dy = point.y - my
+    if (dx * dx + dy * dy <= size * size) return -1
+  }
+
+  return null
+}
+
 export function getResizeHandleCursor(handle: ResizeHandle): string {
   const cursors: Record<ResizeHandle, string> = {
     nw: 'nwse-resize',

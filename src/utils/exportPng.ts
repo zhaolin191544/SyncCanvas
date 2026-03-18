@@ -6,6 +6,7 @@ import { drawLine } from '@/engine/elements/Line'
 import { drawArrow } from '@/engine/elements/Arrow'
 import { drawFreehand } from '@/engine/elements/Freehand'
 import { drawText } from '@/engine/elements/Text'
+import { drawImage } from '@/engine/elements/Image'
 
 const EXPORT_PADDING = 40
 
@@ -51,6 +52,7 @@ export function exportToPng(elements: Map<string, CanvasElement>) {
       case 'arrow': drawArrow(ctx, el); break
       case 'freehand': drawFreehand(ctx, el); break
       case 'text': drawText(ctx, el); break
+      case 'image': drawImage(ctx, el); break
     }
     ctx.restore()
   }

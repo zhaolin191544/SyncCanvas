@@ -68,7 +68,7 @@ export default function PropertyPanel({ selectedElements, onUpdate, version }: P
           {!isImage && (
             <PropertySlider label={t.width} value={el.strokeWidth} min={0} max={20} onChange={(v: number) => selectedElements.forEach(e => onUpdate(e.id, { strokeWidth: v }))} suffix="px" />
           )}
-          <PropertySlider label={t.opacity} value={Math.round(el.opacity * 100)} min={0} max={100} onChange={(v) => selectedElements.forEach(e => onUpdate(e.id, { opacity: v / 100 }))} suffix="%" />
+          <PropertySlider label={t.opacity} value={Math.round(el.opacity * 100)} min={0} max={100} onChange={(v: number) => selectedElements.forEach(e => onUpdate(e.id, { opacity: v / 100 }))} suffix="%" />
         </div>
 
         {/* Text Size */}
@@ -79,15 +79,15 @@ export default function PropertyPanel({ selectedElements, onUpdate, version }: P
           </div>
         )}
 
-        {/* Stats */}
+        {/* Position & Size - Editable */}
         {!multi && (
-          <div className="pt-4 border-t border-stone-50 grid grid-cols-2 gap-y-3">
-            <StatItem label="X" value={Math.round(el.x)} />
-            <StatItem label="Y" value={Math.round(el.y)} />
+          <div className="pt-4 border-t border-stone-50 grid grid-cols-2 gap-3">
+            <EditableStatItem label="X" value={Math.round(el.x)} onChange={(v) => onUpdate(el.id, { x: v })} />
+            <EditableStatItem label="Y" value={Math.round(el.y)} onChange={(v) => onUpdate(el.id, { y: v })} />
             {el.type !== 'freehand' && (
               <>
-                <StatItem label="W" value={Math.round(Math.abs(el.width))} />
-                <StatItem label="H" value={Math.round(Math.abs(el.height))} />
+                <EditableStatItem label="W" value={Math.round(Math.abs(el.width))} onChange={(v) => onUpdate(el.id, { width: Math.abs(v) })} />
+                <EditableStatItem label="H" value={Math.round(Math.abs(el.height))} onChange={(v) => onUpdate(el.id, { height: Math.abs(v) })} />
               </>
             )}
           </div>
@@ -109,11 +109,20 @@ function PropertySlider({ label, value, min, max, onChange, suffix }: any) {
   )
 }
 
-function StatItem({ label, value }: any) {
+function EditableStatItem({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-[9px] font-bold text-stone-300 w-3">{label}</span>
-      <span className="text-[10px] font-medium text-stone-600 font-mono">{value}</span>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => {
+          const v = Number(e.target.value)
+          if (!isNaN(v)) onChange(v)
+        }}
+        onKeyDown={(e) => e.stopPropagation()}
+        className="w-full bg-stone-50 border border-stone-100 rounded-lg px-2 py-1 text-[10px] font-medium text-stone-600 font-mono outline-none focus:border-stone-900 transition-colors"
+      />
     </div>
   )
 }

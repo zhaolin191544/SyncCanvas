@@ -33,6 +33,7 @@ export interface CanvasElement {
   name?: string // Optional name for elements
   visible?: boolean // Visibility toggle
   locked?: boolean // Lock toggle
+  controlPoints?: number[][] // Bezier control points for lines/arrows [[cx,cy], ...]
   createdBy: string
   createdAt: number
   zIndex: number

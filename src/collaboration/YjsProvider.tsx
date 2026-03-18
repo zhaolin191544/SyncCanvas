@@ -69,23 +69,23 @@ export function YjsProviderComponent({ roomId, children, wsUrl }: YjsProviderPro
     })
 
     // Connection status tracking
-    provider.on('status', ({ status }: { status: string }) => {
-      if (status === 'connected') {
+    const updateStatus = () => {
+      if (provider.wsconnected) {
         setConnectionStatus('connected')
-      } else if (status === 'disconnected') {
-        setConnectionStatus('disconnected')
-      } else {
+      } else if (provider.wsconnecting) {
         setConnectionStatus('connecting')
+      } else {
+        setConnectionStatus('disconnected')
       }
-    })
+    }
 
-    provider.on('sync', (synced: boolean) => {
-      if (synced) setConnectionStatus('connected')
-    })
+    provider.on('status', updateStatus)
+    provider.on('sync', updateStatus)
+    provider.on('connection-close', updateStatus)
+    provider.on('connection-error', updateStatus)
 
-    provider.on('connection-close', () => {
-      setConnectionStatus('disconnected')
-    })
+    // Check initial state (in case already connected before listener registered)
+    updateStatus()
 
     setReady(true)
 

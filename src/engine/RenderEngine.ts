@@ -140,6 +140,7 @@ export class RenderEngine {
     // Draw resize handles for selected elements
     if (this.selection.selectedIds.size > 0) {
       this.drawResizeHandles(ctx)
+      this.drawControlPointHandles(ctx)
     }
 
     // Draw remote cursors
@@ -250,6 +251,65 @@ export class RenderEngine {
     ctx.stroke()
     
     ctx.restore()
+  }
+
+  private drawControlPointHandles(ctx: CanvasRenderingContext2D) {
+    // Draw control point handles for selected lines/arrows
+    for (const id of this.selection.selectedIds) {
+      const el = this.elements.get(id)
+      if (!el) continue
+      if (el.type !== 'line' && el.type !== 'arrow') continue
+
+      const startX = el.x
+      const startY = el.y
+      const endX = el.x + el.width
+      const endY = el.y + el.height
+      const size = 5 / this.camera.zoom
+
+      ctx.save()
+
+      if (el.controlPoints && el.controlPoints.length > 0) {
+        // Draw lines from curve to control points & the control point circles
+        for (const cp of el.controlPoints) {
+          // Dashed guide line
+          ctx.beginPath()
+          ctx.setLineDash([4 / this.camera.zoom, 4 / this.camera.zoom])
+          ctx.strokeStyle = '#8b5cf6'
+          ctx.lineWidth = 1 / this.camera.zoom
+          ctx.moveTo(startX, startY)
+          ctx.lineTo(cp[0], cp[1])
+          ctx.lineTo(endX, endY)
+          ctx.stroke()
+          ctx.setLineDash([])
+
+          // Control point circle
+          ctx.beginPath()
+          ctx.arc(cp[0], cp[1], size, 0, Math.PI * 2)
+          ctx.fillStyle = '#8b5cf6'
+          ctx.fill()
+          ctx.strokeStyle = '#ffffff'
+          ctx.lineWidth = 1.5 / this.camera.zoom
+          ctx.stroke()
+        }
+      } else {
+        // Show midpoint hint (small diamond) to indicate user can drag to bend
+        const mx = (startX + endX) / 2
+        const my = (startY + endY) / 2
+        ctx.beginPath()
+        ctx.moveTo(mx, my - size)
+        ctx.lineTo(mx + size, my)
+        ctx.lineTo(mx, my + size)
+        ctx.lineTo(mx - size, my)
+        ctx.closePath()
+        ctx.fillStyle = 'rgba(139, 92, 246, 0.3)'
+        ctx.fill()
+        ctx.strokeStyle = '#8b5cf6'
+        ctx.lineWidth = 1 / this.camera.zoom
+        ctx.stroke()
+      }
+
+      ctx.restore()
+    }
   }
 
   private drawSelectionBox(ctx: CanvasRenderingContext2D) {

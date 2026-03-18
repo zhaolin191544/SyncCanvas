@@ -1,17 +1,18 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, type Variants } from 'framer-motion'
+import type { Easing } from 'framer-motion'
 
 export default function SyncLogo({ className = "w-16 h-16" }: { className?: string }) {
-  const pathVariants = {
+  const pathVariants: Variants = {
     initial: { pathLength: 0, opacity: 0 },
     animate: {
       pathLength: 1,
       opacity: 1,
       transition: {
-        pathLength: { 
-          duration: 3.5, 
-          ease: "easeInOut",
+        pathLength: {
+          duration: 3.5,
+          ease: "easeInOut" as Easing,
           repeat: Infinity,
           repeatType: "reverse" as const,
           repeatDelay: 1
