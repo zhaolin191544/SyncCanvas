@@ -86,15 +86,11 @@ export function YjsProviderComponent({ roomId, children }: YjsProviderProps) {
         setConnectionStatus(statusInfo[0].status as ConnectionStatus)
       } else if (provider.connected) {
         setConnectionStatus('connected')
-      } else {
-        setConnectionStatus('disconnected')
       }
+      // Don't set 'disconnected' on initial null call — let it stay 'connecting'
     }
 
     provider.on('status', updateStatus)
-
-    // Check initial state
-    updateStatus(null)
 
     setReady(true)
 
