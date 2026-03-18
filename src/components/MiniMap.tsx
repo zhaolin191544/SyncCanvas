@@ -164,7 +164,7 @@ export default function MiniMap({ engineRef, canvasRef }: MiniMapProps) {
   }, [engineRef, canvasRef])
 
   return (
-    <div className="absolute bottom-14 right-4 z-10 rounded-xl overflow-hidden shadow-lg border border-gray-200/80 bg-white/90 backdrop-blur-sm">
+    <div className="absolute bottom-14 left-1 z-10 rounded-xl overflow-hidden shadow-lg border border-gray-200/80 bg-white/90 backdrop-blur-sm">
       <canvas
         ref={miniRef}
         width={MAP_W}

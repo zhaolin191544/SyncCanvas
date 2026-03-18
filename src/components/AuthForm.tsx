@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useLanguage } from '@/contexts/LanguageContext'
 import { motion } from 'framer-motion'
 import { ArrowRight, Loader2 } from 'lucide-react'
 
@@ -12,6 +13,7 @@ export default function AuthForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login, register } = useAuth()
+  const { t } = useLanguage()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,23 +23,23 @@ export default function AuthForm() {
       if (isLogin) await login(username, password)
       else await register(username, password)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+      setError(err instanceof Error ? err.message : t.authFailed)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="w-full max-w-sm">
+    <div className="w-full max-w-sm items-center justify-center">
       <form onSubmit={handleSubmit} className="space-y-8 p-10 bg-white border border-stone-200 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.03)]">
         <div className="space-y-2 text-center">
-          <h2 className="text-2xl font-serif italic text-stone-900">{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
+          <h2 className="text-2xl font-serif italic text-stone-900">{isLogin ? t.welcomeBack : t.createAccount}</h2>
           <p className="text-xs text-stone-400 font-medium">Join our minimalist creative space.</p>
         </div>
 
         <div className="space-y-5">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest ml-1">Username</label>
+            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest ml-1">{t.username}</label>
             <input
               type="text"
               value={username}
@@ -49,7 +51,7 @@ export default function AuthForm() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest ml-1">Password</label>
+            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest ml-1">{t.password}</label>
             <input
               type="password"
               value={password}
@@ -72,7 +74,7 @@ export default function AuthForm() {
         >
           {loading ? <Loader2 className="animate-spin" size={18} /> : (
             <>
-              {isLogin ? 'Sign In' : 'Sign Up'}
+              {isLogin ? t.signIn : t.signUp}
               <ArrowRight size={16} />
             </>
           )}
@@ -84,7 +86,7 @@ export default function AuthForm() {
             onClick={() => setIsLogin(!isLogin)}
             className="text-[10px] font-bold text-stone-400 hover:text-stone-900 transition-colors uppercase tracking-widest"
           >
-            {isLogin ? "Need an account? Sign Up" : "Have an account? Sign In"}
+            {isLogin ? t.needAccount : t.alreadyHaveAccount}
           </button>
         </div>
       </form>

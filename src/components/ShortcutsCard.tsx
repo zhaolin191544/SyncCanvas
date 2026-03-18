@@ -3,7 +3,26 @@
 import { useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Command, Keyboard, X, MousePointer2, Move, Type, ZoomIn, Scissors } from 'lucide-react'
+import { 
+  Command, 
+  Keyboard, 
+  MousePointer2, 
+  Move, 
+  Type, 
+  ZoomIn, 
+  Scissors,
+  Square,
+  Circle,
+  Minus,
+  ArrowUpRight,
+  Pencil,
+  Image as ImageIcon,
+  RotateCw,
+  Undo2,
+  Copy,
+  Trash2,
+  Plus
+} from 'lucide-react'
 
 export default function ShortcutsCard() {
   const [collapsed, setCollapsed] = useState(true)
@@ -11,57 +30,60 @@ export default function ShortcutsCard() {
 
   const shortcuts = [
     { key: 'V', desc: t.tools.select, icon: MousePointer2 },
-    { key: 'R', desc: t.tools.rectangle, icon: null },
-    { key: 'O', desc: t.tools.ellipse, icon: null },
-    { key: 'L', desc: t.tools.line, icon: null },
-    { key: 'A', desc: t.tools.arrow, icon: null },
-    { key: 'P', desc: t.tools.freehand, icon: null },
+    { key: 'R', desc: t.tools.rectangle, icon: Square },
+    { key: 'O', desc: t.tools.ellipse, icon: Circle },
+    { key: 'L', desc: t.tools.line, icon: Minus },
+    { key: 'A', desc: t.tools.arrow, icon: ArrowUpRight },
+    { key: 'P', desc: t.tools.freehand, icon: Pencil },
     { key: 'T', desc: t.tools.text, icon: Type },
+    { key: 'I', desc: t.tools.image, icon: ImageIcon },
     { key: 'E', desc: t.tools.eraser, icon: Scissors },
-    { key: 'Del', desc: 'Delete Selection', icon: null },
-    { key: 'Ctrl+Z', desc: 'Undo', icon: null },
-    { key: 'Ctrl+D', desc: 'Duplicate', icon: null },
-    { key: 'DblClick', desc: 'Add Text', icon: null },
-    { key: 'Wheel', desc: 'Zoom', icon: ZoomIn },
-    { key: 'MiddleDrag', desc: 'Pan', icon: Move },
+    { key: 'Del', desc: t.deleteSelection, icon: Trash2 },
+    { key: 'Ctrl+Z', desc: t.undo, icon: Undo2 },
+    { key: 'Ctrl+D', desc: t.duplicate, icon: Copy },
+    { key: 'DblClick', desc: t.addText, icon: Plus },
+    { key: 'Wheel', desc: t.zoom, icon: ZoomIn },
+    { key: 'MiddleDrag', desc: t.pan, icon: Move },
   ]
 
   return (
-    <div className="absolute left-6 top-24 z-50">
+    <div className="absolute left-6 top-44 z-50">
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
         onClick={() => setCollapsed(!collapsed)}
-        className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-[10px] font-black tracking-widest uppercase transition-all duration-300 shadow-2xl border backdrop-blur-2xl
+        className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-[10px] font-bold tracking-widest uppercase transition-all duration-300 shadow-sm border
           ${collapsed 
-            ? 'bg-[#1a1a1a]/80 text-gray-400 border-white/5 hover:text-white' 
-            : 'bg-white text-black border-white'
+            ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-400' 
+            : 'bg-stone-900 text-white border-stone-900'
           }`}
       >
-        <Keyboard size={16} />
-        {collapsed ? t.shortcuts : 'Close'}
+        <Keyboard size={14} />
+        {collapsed ? t.shortcuts : t.cancel}
       </motion.button>
 
       <AnimatePresence>
         {!collapsed && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className="mt-4 w-64 rounded-[2rem] bg-[#1a1a1a]/90 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="mt-3 w-64 rounded-3xl bg-white text-stone-900 shadow-2xl border border-stone-200 overflow-hidden"
           >
-            <div className="px-6 py-4 text-[10px] font-black text-gray-500 bg-white/[0.02] border-b border-white/5 uppercase tracking-[0.2em] flex items-center justify-between">
+            <div className="px-6 py-4 text-[10px] font-bold text-stone-400 border-b border-stone-50 uppercase tracking-widest flex items-center justify-between">
               {t.shortcuts}
-              <Command size={12} className="text-blue-500" />
+              <Command size={12} />
             </div>
             <div className="p-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
               {shortcuts.map(({ key, desc, icon: Icon }) => (
-                <div key={key} className="flex items-center justify-between px-3 py-2 hover:bg-white/[0.03] rounded-xl transition-colors group">
-                  <div className="flex items-center gap-2">
-                    {Icon && <Icon size={12} className="text-gray-600 group-hover:text-blue-500 transition-colors" />}
-                    <span className="text-[10px] text-gray-400 font-bold group-hover:text-gray-200 transition-colors">{desc}</span>
+                <div key={key} className="flex items-center justify-between px-3 py-2 hover:bg-stone-50 rounded-xl transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-lg bg-stone-50 flex items-center justify-center text-stone-400 group-hover:text-stone-900 transition-colors">
+                      {Icon && <Icon size={12} />}
+                    </div>
+                    <span className="text-[10px] font-medium text-stone-500 group-hover:text-stone-900">{desc}</span>
                   </div>
-                  <kbd className="px-2 py-0.5 text-[9px] font-black bg-white/5 text-blue-400 rounded-lg border border-white/5 min-w-[20px] text-center">
+                  <kbd className="px-1.5 py-0.5 text-[9px] font-bold bg-stone-100 text-stone-500 rounded border border-stone-200 min-w-[20px] text-center uppercase">
                     {key}
                   </kbd>
                 </div>

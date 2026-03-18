@@ -37,3 +37,26 @@ export async function POST(
 
   return NextResponse.json({ success: true })
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ roomId: string }> }
+) {
+  const { roomId } = await params
+
+  const auth = request.headers.get('authorization')
+  if (!auth?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const payload = verifyToken(auth.slice(7))
+  if (!payload) {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  }
+
+  await prisma.roomMember.deleteMany({
+    where: { roomId, userId: payload.userId }
+  })
+
+  return NextResponse.json({ success: true })
+}

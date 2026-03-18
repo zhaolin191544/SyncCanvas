@@ -15,7 +15,7 @@ export default function UserPresence({ localUser, remoteUsers }: UserPresencePro
   ]
 
   return (
-    <div className="absolute top-6 right-36 z-50 flex items-center -space-x-2">
+    <div className="absolute top-6 right-86 z-50 flex items-center -space-x-2">
       <AnimatePresence>
         {allUsers.map((user, i) => (
           <motion.div

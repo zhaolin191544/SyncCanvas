@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { generateId } from '@/utils/id'
 import AuthForm from '@/components/AuthForm'
+import SyncLogo from '@/components/SyncLogo'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Plus, 
@@ -19,7 +20,11 @@ import {
   Monitor,
   PenTool,
   ArrowUpRight,
-  Search
+  Search,
+  Trash2,
+  X,
+  Edit2,
+  Check
 } from 'lucide-react'
 
 interface Room {
@@ -42,6 +47,10 @@ export default function Home() {
   const [roomPassword, setRoomPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  
+  // Dashboard renaming state
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [tempName, setTempName] = useState('')
 
   useEffect(() => {
     if (user && token) {
@@ -105,6 +114,55 @@ export default function Home() {
     }
   }
 
+  const handleDeleteRoom = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this board?')) return
+    try {
+      const res = await fetch(`/api/rooms/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) fetchRooms()
+    } catch (err) {
+      console.error('Failed to delete:', err)
+    }
+  }
+
+  const handleLeaveRoom = async (id: string) => {
+    if (!confirm('Are you sure you want to leave this board?')) return
+    try {
+      const res = await fetch(`/api/rooms/${id}/join`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) fetchRooms()
+    } catch (err) {
+      console.error('Failed to leave:', err)
+    }
+  }
+
+  const handleRenameBoard = async (id: string) => {
+    if (!tempName.trim()) {
+      setRenamingId(null)
+      return
+    }
+    try {
+      const res = await fetch(`/api/rooms/${id}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ name: tempName }),
+      })
+      if (res.ok) {
+        setRenamingId(null)
+        fetchRooms()
+      }
+    } catch (err) {
+      console.error('Failed to rename:', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#fafaf9]">
@@ -115,25 +173,25 @@ export default function Home() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fafaf9] p-4 font-serif">
-        <main className="flex flex-col items-center gap-12 max-w-md w-full">
-          <div className="text-center space-y-4">
+      <div className="flex min-h-screen items-center justify-center bg-[#fafaf9] p-4">
+        <main className="flex flex-col items-center gap-12 w-full max-w-sm">
+          <div className="text-center space-y-6">
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex justify-center"
             >
-              <div className="w-12 h-12 rounded-full border border-stone-200 flex items-center justify-center text-stone-800 italic text-2xl">S</div>
+              <SyncLogo className="w-24 h-16 text-stone-800" />
             </motion.div>
             <div className="space-y-2">
-              <h1 className="text-3xl font-medium tracking-tight text-stone-900">SyncCanvas</h1>
-              <p className="text-stone-500 font-sans text-sm">Quietly elegant collaboration for creative minds.</p>
+              <h1 className="text-4xl font-serif italic tracking-tight text-stone-900">SyncCanvas</h1>
+              <p className="text-stone-500 text-sm font-medium">Quietly elegant collaboration for creative minds.</p>
             </div>
           </div>
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
             className="w-full"
           >
             <AuthForm />
@@ -145,12 +203,12 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#fafaf9] text-stone-900 flex font-sans selection:bg-stone-200">
-      {/* Navigation - Minimalist Studio Style */}
+      {/* Navigation */}
       <aside className="w-64 border-r border-stone-200 flex flex-col bg-white">
         <div className="p-8 pb-12">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-8 h-8 rounded-full border border-stone-800 flex items-center justify-center text-stone-800 font-serif italic">S</div>
-            <span className="font-semibold text-lg tracking-tight">SyncCanvas</span>
+          <div className="flex flex-col items-center gap-2 mb-12">
+            <SyncLogo className="w-16 h-12 text-stone-800" />
+            <span className="font-serif italic text-lg tracking-tight">SyncCanvas</span>
           </div>
 
           <nav className="space-y-1">
@@ -175,7 +233,7 @@ export default function Home() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate">{user.username}</p>
-              <p className="text-[10px] text-stone-400">Personal Account</p>
+              <p className="text-[10px] text-stone-400">{t.personalAccount}</p>
             </div>
             <button 
               onClick={logout} 
@@ -290,21 +348,54 @@ export default function Home() {
               <motion.div
                 key={room.id}
                 whileHover={{ y: -4 }}
-                onClick={() => router.push(`/board/${room.id}`)}
-                className="group bg-white p-8 rounded-[2rem] border border-stone-200 hover:border-stone-900 transition-all cursor-pointer flex flex-col justify-between min-h-[240px] shadow-sm hover:shadow-md"
+                className="group bg-white p-8 rounded-[2rem] border border-stone-200 hover:border-stone-900 transition-all flex flex-col justify-between min-h-[240px] shadow-sm hover:shadow-md relative overflow-hidden"
               >
-                <div>
+                <div onClick={() => router.push(`/board/${room.id}`)} className="cursor-pointer">
                   <div className="w-10 h-10 rounded-full border border-stone-100 flex items-center justify-center text-stone-400 mb-6 group-hover:bg-stone-900 group-hover:text-white transition-colors">
                     <Monitor size={18} strokeWidth={1.5} />
                   </div>
-                  <h3 className="text-lg font-medium text-stone-900 truncate tracking-tight">{room.id}</h3>
+                  
+                  {renamingId === room.id ? (
+                    <div className="flex items-center gap-2 mb-2" onClick={e => e.stopPropagation()}>
+                      <input
+                        autoFocus
+                        className="text-lg font-medium text-stone-900 border-b border-stone-900 outline-none w-full"
+                        value={tempName}
+                        onChange={e => setTempName(e.target.value)}
+                        onBlur={() => handleRenameBoard(room.id)}
+                        onKeyDown={e => e.key === 'Enter' && handleRenameBoard(room.id)}
+                      />
+                      <Check size={16} className="text-green-500 cursor-pointer" onClick={() => handleRenameBoard(room.id)} />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between group/title">
+                      <h3 className="text-lg font-medium text-stone-900 truncate tracking-tight">{room.name || room.id}</h3>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setRenamingId(room.id); setTempName(room.name || room.id) }}
+                        className="opacity-0 group-hover/title:opacity-100 p-1 hover:text-blue-500 transition-opacity"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2 mt-2 text-stone-400 text-[10px] font-medium uppercase tracking-wider">
                     <Clock size={12} />
                     {new Date(room.createdAt).toLocaleDateString()}
                   </div>
                 </div>
+
                 <div className="pt-6 border-t border-stone-50 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-stone-300 uppercase tracking-widest">{t.owner}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-stone-300 uppercase tracking-widest">{t.owner}</span>
+                    <button 
+                      onClick={() => handleDeleteRoom(room.id)}
+                      className="p-1 text-stone-200 hover:text-red-500 transition-colors"
+                      title="Delete Board"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                   <div className="w-7 h-7 rounded-full border border-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-600">
                     {user.username.charAt(0).toUpperCase()}
                   </div>
@@ -321,18 +412,26 @@ export default function Home() {
                   <motion.div
                     key={room.id}
                     whileHover={{ y: -4 }}
-                    onClick={() => router.push(`/board/${room.id}`)}
                     className="group bg-white p-8 rounded-[2rem] border border-stone-100 hover:border-stone-900 transition-all cursor-pointer flex flex-col justify-between min-h-[240px]"
                   >
-                    <div>
+                    <div onClick={() => router.push(`/board/${room.id}`)}>
                       <div className="w-10 h-10 rounded-full border border-stone-50 flex items-center justify-center text-stone-300 mb-6 group-hover:bg-stone-100 group-hover:text-stone-900 transition-colors">
                         <UserIcon size={18} strokeWidth={1.5} />
                       </div>
-                      <h3 className="text-lg font-medium text-stone-900 truncate tracking-tight">{room.id}</h3>
+                      <h3 className="text-lg font-medium text-stone-900 truncate tracking-tight">{room.name || room.id}</h3>
                       <p className="text-[10px] font-medium text-stone-400 mt-2 uppercase tracking-widest italic">By {room.creator.username}</p>
                     </div>
                     <div className="pt-6 border-t border-stone-50 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-stone-200 uppercase tracking-widest">{t.collaborator}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-stone-200 uppercase tracking-widest">{t.collaborator}</span>
+                        <button 
+                          onClick={() => handleLeaveRoom(room.id)}
+                          className="p-1 text-stone-200 hover:text-red-400 transition-colors"
+                          title="Leave Board"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
                       <ArrowUpRight size={14} className="text-stone-200 group-hover:text-stone-900 transition-colors" />
                     </div>
                   </motion.div>

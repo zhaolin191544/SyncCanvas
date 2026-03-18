@@ -64,8 +64,9 @@ export default function PropertyPanel({ selectedElements, onUpdate, version }: P
 
         {/* Sliders */}
         <div className="space-y-4">
+          <PropertySlider label="Rotation" value={Math.round((el.rotation * 180) / Math.PI)} min={-180} max={180} onChange={(v: number) => selectedElements.forEach(e => onUpdate(e.id, { rotation: (v * Math.PI) / 180 }))} suffix="°" />
           {!isImage && (
-            <PropertySlider label={t.width} value={el.strokeWidth} min={0} max={20} onChange={(v) => selectedElements.forEach(e => onUpdate(e.id, { strokeWidth: v }))} suffix="px" />
+            <PropertySlider label={t.width} value={el.strokeWidth} min={0} max={20} onChange={(v: number) => selectedElements.forEach(e => onUpdate(e.id, { strokeWidth: v }))} suffix="px" />
           )}
           <PropertySlider label={t.opacity} value={Math.round(el.opacity * 100)} min={0} max={100} onChange={(v) => selectedElements.forEach(e => onUpdate(e.id, { opacity: v / 100 }))} suffix="%" />
         </div>

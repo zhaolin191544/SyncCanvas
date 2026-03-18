@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useCanvas } from '@/hooks/useCanvas'
+import { useAuth } from '@/contexts/AuthContext'
 import { useYjs } from '@/collaboration/YjsProvider'
 import { useYjsElements } from '@/collaboration/useYjsElements'
 import { useAwareness } from '@/collaboration/useAwareness'
@@ -44,10 +45,47 @@ export default function BoardContent({ roomId }: BoardContentProps) {
   const [isPresenting, setIsPresenting] = useState(false)
   const [showElementList, setShowElementList] = useState(false)
   const [followingUserId, setFollowingUserId] = useState<string | null>(null)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [boardName, setBoardName] = useState('')
+  const [showCopied, setShowCopied] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { t } = useLanguage()
 
   const { connectionStatus, userName, userColor, yMetadata, userId: localUserId } = useYjs()
+  const { token } = useAuth()
+
+  // Sync Board Name
+  useEffect(() => {
+    const updateName = () => setBoardName(yMetadata.get('name') as string || '')
+    yMetadata.observe(updateName)
+    updateName()
+    return () => yMetadata.unobserve(updateName)
+  }, [yMetadata])
+
+  const handleRename = async (newName: string) => {
+    setBoardName(newName)
+    yMetadata.set('name', newName)
+    // Persist to database
+    try {
+      await fetch(`/api/rooms/${roomId}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: newName }),
+      })
+    } catch (err) {
+      console.error('Failed to persist room name:', err)
+    }
+  }
+
+  const handleShare = () => {
+    const url = window.location.href
+    navigator.clipboard.writeText(url)
+    setShowCopied(true)
+    setTimeout(() => setShowCopied(false), 2000)
+  }
 
   const { canvasRef, engineRef, inputRef, currentTool, changeTool, selectedIds } = useCanvas({
     onTextEdit: (element, screenPos) => {
@@ -210,7 +248,7 @@ export default function BoardContent({ roomId }: BoardContentProps) {
         {/* Presenter Mode Indicator */}
         <AnimatePresence>
           {followingUserId && (
-            <motion.div initial={{ y:-20, opacity:0 }} animate={{ y:20, opacity:1 }} exit={{ y:-20, opacity:0 }} className="absolute top-0 left-1/2 -translate-x-1/2 z-50 bg-stone-900 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 shadow-xl">
+            <motion.div initial={{ y:-20, opacity:0 }} animate={{ y:90, opacity:1 }} exit={{ y:-20, opacity:0 }} className="absolute top-0 left-1/2 -translate-x-1/2 z-50 bg-stone-900 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 shadow-xl">
               <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               Watching {remoteUsers.find(u => u.id === followingUserId)?.name}
               <button onClick={() => setFollowingUserId(null)} className="ml-2 hover:text-stone-400"><Minimize2 size={10}/></button>
@@ -218,10 +256,10 @@ export default function BoardContent({ roomId }: BoardContentProps) {
           )}
         </AnimatePresence>
 
-        {/* Floating Toolbar - Professional Designer Style */}
+        {/* Floating Toolbar - Responsive Positioning */}
         <AnimatePresence>
           {!isPresenting && (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40">
+            <div className="absolute bottom-20 md:bottom-auto md:top-6 left-1/2 -translate-x-1/2 z-40 transition-all">
               <Toolbar currentTool={currentTool} onToolChange={changeTool} onExport={handleExport} />
             </div>
           )}
@@ -244,14 +282,21 @@ export default function BoardContent({ roomId }: BoardContentProps) {
           )}
         </div>
 
-        {/* Shortcuts & Presence */}
+        {/* Shortcuts & Presence - Responsive spacing */}
         {!isPresenting && <ShortcutsCard />}
-        <UserPresence localUser={{ name: userName, color: userColor }} remoteUsers={remoteUsers} />
+        <div className="md:block hidden">
+          <UserPresence localUser={{ name: userName, color: userColor }} remoteUsers={remoteUsers} />
+        </div>
+        <div className="md:hidden block absolute top-20 right-6 z-50">
+          <UserPresence localUser={{ name: userName, color: userColor }} remoteUsers={remoteUsers} />
+        </div>
 
-        {/* MiniMap & Connection */}
-        <div className="absolute bottom-6 left-6 z-40 flex items-center gap-4">
+        {/* MiniMap & Connection - Responsive */}
+        <div className="absolute bottom-6 left-6 z-40 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
           <ConnectionStatusComponent status={connectionStatus} />
-          <MiniMap engineRef={engineRef} canvasRef={canvasRef} />
+          <div className="scale-75 md:scale-100 origin-left">
+            <MiniMap engineRef={engineRef} canvasRef={canvasRef} />
+          </div>
         </div>
 
         {/* Zoom Controls - Minimalist */}
@@ -261,13 +306,52 @@ export default function BoardContent({ roomId }: BoardContentProps) {
           <button className="p-2 text-stone-400 hover:text-stone-900" onClick={() => engineRef.current?.camera.zoomAtPoint(window.innerWidth/2, window.innerHeight/2, -300)}><ZoomIn size={16}/></button>
         </div>
 
-        {/* Top Right Header */}
-        <div className="absolute top-6 right-6 z-40 flex items-center gap-3">
+        {/* Top Right Header - Responsive */}
+        <div className="absolute top-6 right-6 z-40 flex flex-col md:flex-row items-end md:items-center gap-3">
           <div className="px-4 py-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-stone-200/50 shadow-sm flex items-center gap-3">
-            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest border-r border-stone-100 pr-3">Room</span>
-            <span className="text-xs font-medium text-stone-600 font-mono tracking-tight">{roomId.slice(0, 8)}</span>
+            {isRenaming ? (
+              <input
+                autoFocus
+                className="bg-transparent border-none outline-none text-xs font-medium text-stone-900 w-24 md:w-32"
+                value={boardName}
+                onChange={(e) => handleRename(e.target.value)}
+                onBlur={() => setIsRenaming(false)}
+                onKeyDown={(e) => e.key === 'Enter' && setIsRenaming(false)}
+              />
+            ) : (
+              <span 
+                className="text-xs font-medium text-stone-600 cursor-pointer hover:text-stone-900 truncate max-w-[80px] md:max-w-[120px]"
+                onClick={() => setIsRenaming(true)}
+                title={t.renameBoard}
+              >
+                {boardName || roomId.slice(0, 8)}
+              </span>
+            )}
+            <div className="w-px h-3 bg-stone-200" />
+            <span className="text-[9px] font-bold text-stone-300 uppercase tracking-widest">Room</span>
           </div>
-          <button className="p-2.5 bg-stone-900 text-white rounded-2xl hover:bg-stone-800 transition-all shadow-sm"><Share2 size={16}/></button>
+
+          <div className="relative">
+            <button 
+              onClick={handleShare}
+              className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-stone-900 text-white rounded-2xl hover:bg-stone-800 transition-all shadow-sm text-[10px] font-bold uppercase tracking-widest"
+            >
+              <Share2 size={14}/>
+              <span className="hidden sm:inline">{t.share}</span>
+            </button>
+            <AnimatePresence>
+              {showCopied && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute top-full mt-2 right-0 bg-stone-800 text-white text-[9px] px-3 py-1.5 rounded-lg whitespace-nowrap shadow-xl z-[60]"
+                >
+                  {t.linkCopied}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Text Area Overlay */}
