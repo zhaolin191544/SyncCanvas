@@ -25,7 +25,7 @@ export function useAwareness() {
       const states = awareness.getStates()
       const userMap = new Map<string, RemoteUser>()
 
-      states.forEach((state, clientId) => {
+      states.forEach((state: Record<string, any>, clientId: number) => {
         if (clientId === awareness.clientID) return
         if (!state.user?.id) return
         
