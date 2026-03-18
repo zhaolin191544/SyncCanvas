@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import * as Y from 'yjs'
-import { WebsocketProvider } from 'y-websocket'
 import { IndexeddbPersistence } from 'y-indexeddb'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { SupabaseProvider } from './SupabaseProvider'
 import { useAuth } from '@/contexts/AuthContext'
 import { getUserColor } from '@/utils/colors'
 
@@ -14,8 +15,8 @@ interface YjsContextValue {
   yElements: Y.Map<Y.Map<unknown>>
   yOrder: Y.Array<string>
   yMetadata: Y.Map<unknown>
-  provider: WebsocketProvider | null
-  awareness: WebsocketProvider['awareness'] | null
+  provider: SupabaseProvider | null
+  awareness: any | null
   connectionStatus: ConnectionStatus
   userId: string
   userName: string
@@ -27,14 +28,25 @@ const YjsContext = createContext<YjsContextValue | null>(null)
 interface YjsProviderProps {
   roomId: string
   children: ReactNode
-  wsUrl?: string
 }
 
-export function YjsProviderComponent({ roomId, children, wsUrl }: YjsProviderProps) {
+let supabaseClient: SupabaseClient | null = null;
+function getSupabase() {
+  if (supabaseClient) return supabaseClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  if (!url || !key) {
+    console.error('Supabase URL or Key is missing. Collaboration will not work.');
+  }
+  supabaseClient = createClient(url || 'https://placeholder.supabase.co', key || 'placeholder');
+  return supabaseClient;
+}
+
+export function YjsProviderComponent({ roomId, children }: YjsProviderProps) {
   const { user, token } = useAuth()
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
   const ydocRef = useRef<Y.Doc | null>(null)
-  const providerRef = useRef<WebsocketProvider | null>(null)
+  const providerRef = useRef<SupabaseProvider | null>(null)
   const persistenceRef = useRef<IndexeddbPersistence | null>(null)
   const [ready, setReady] = useState(false)
 
@@ -53,11 +65,10 @@ export function YjsProviderComponent({ roomId, children, wsUrl }: YjsProviderPro
     const persistence = new IndexeddbPersistence(`sync-canvas-${roomId}`, ydoc)
     persistenceRef.current = persistence
 
-    // WebSocket provider with auth token
-    const serverUrl = wsUrl || process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:1234'
-    const provider = new WebsocketProvider(serverUrl, roomId, ydoc, {
-      connect: true,
-      params: { token },
+    // Supabase Realtime Provider
+    const supabase = getSupabase()
+    const provider = new SupabaseProvider(ydoc, supabase, {
+      channel: `room:${roomId}`
     })
     providerRef.current = provider
 
@@ -69,23 +80,20 @@ export function YjsProviderComponent({ roomId, children, wsUrl }: YjsProviderPro
     })
 
     // Connection status tracking
-    const updateStatus = () => {
-      if (provider.wsconnected) {
+    const updateStatus = (statusInfo: any) => {
+      if (statusInfo && statusInfo[0] && statusInfo[0].status) {
+        setConnectionStatus(statusInfo[0].status as ConnectionStatus)
+      } else if (provider.connected) {
         setConnectionStatus('connected')
-      } else if (provider.wsconnecting) {
-        setConnectionStatus('connecting')
       } else {
         setConnectionStatus('disconnected')
       }
     }
 
     provider.on('status', updateStatus)
-    provider.on('sync', updateStatus)
-    provider.on('connection-close', updateStatus)
-    provider.on('connection-error', updateStatus)
 
-    // Check initial state (in case already connected before listener registered)
-    updateStatus()
+    // Check initial state
+    updateStatus(null)
 
     setReady(true)
 
@@ -98,7 +106,7 @@ export function YjsProviderComponent({ roomId, children, wsUrl }: YjsProviderPro
       persistenceRef.current = null
       setReady(false)
     }
-  }, [roomId, wsUrl, token, userId, userName, userColor])
+  }, [roomId, token, userId, userName, userColor])
 
   if (!ready || !ydocRef.current) return null
 

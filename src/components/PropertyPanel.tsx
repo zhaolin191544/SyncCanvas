@@ -97,7 +97,16 @@ export default function PropertyPanel({ selectedElements, onUpdate, version }: P
   )
 }
 
-function PropertySlider({ label, value, min, max, onChange, suffix }: any) {
+interface PropertySliderProps {
+  label: string
+  value: number
+  min: number
+  max: number
+  onChange: (value: number) => void
+  suffix: string
+}
+
+function PropertySlider({ label, value, min, max, onChange, suffix }: PropertySliderProps) {
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
