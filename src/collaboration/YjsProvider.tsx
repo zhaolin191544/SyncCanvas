@@ -68,7 +68,8 @@ export function YjsProviderComponent({ roomId, children }: YjsProviderProps) {
     // Supabase Realtime Provider
     const supabase = getSupabase()
     const provider = new SupabaseProvider(ydoc, supabase, {
-      channel: `room:${roomId}`
+      channel: `room:${roomId}`,
+      roomId: roomId
     })
     providerRef.current = provider
 

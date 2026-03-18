@@ -4,11 +4,11 @@ import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
 
 export interface SupabaseProviderConfig {
   channel: string
+  roomId: string // Must be the same as the ID in the 'Room' table
   awareness?: Awareness
-  resyncInterval?: number | false
+  saveInterval?: number // Interval in ms to save to DB (default: 5000)
 }
 
-// Simple event emitter implementation for the provider
 type EventHandler = (...args: any[]) => void;
 
 export class SupabaseProvider {
@@ -19,6 +19,8 @@ export class SupabaseProvider {
   config: SupabaseProviderConfig
   connected: boolean = false
   private _listeners: Map<string, Set<EventHandler>> = new Map()
+  private _saveTimeout: any = null
+  private _isDestroyed: boolean = false
   
   constructor(doc: Y.Doc, supabase: SupabaseClient, config: SupabaseProviderConfig) {
     this.doc = doc
@@ -37,6 +39,7 @@ export class SupabaseProvider {
     }
 
     this.connect()
+    this.initialFetch()
   }
 
   on(eventName: string, handler: EventHandler) {
@@ -60,6 +63,60 @@ export class SupabaseProvider {
     }
   }
 
+  private async initialFetch() {
+    try {
+      const { data, error } = await this.supabase
+        .from('Room')
+        .select('content')
+        .eq('id', this.config.roomId)
+        .single()
+
+      if (error) {
+        console.error('Failed to fetch initial room content:', error)
+        return
+      }
+
+      if (data?.content) {
+        // Base64 or ByteA handled by supabase-js
+        // If ByteA, it might come back as hex string or ArrayBuffer
+        let uint8;
+        if (typeof data.content === 'string') {
+           // Postgrest might return hex string for bytea
+           const hex = data.content.startsWith('\\x') ? data.content.substring(2) : data.content;
+           uint8 = new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+        } else {
+           uint8 = new Uint8Array(data.content);
+        }
+        
+        if (uint8.length > 0) {
+          Y.applyUpdate(this.doc, uint8, 'initial-fetch')
+        }
+      }
+    } catch (e) {
+      console.error('Error during initial fetch:', e)
+    }
+  }
+
+  async saveToDatabase() {
+    if (this._isDestroyed) return;
+    
+    try {
+      const content = Y.encodeStateAsUpdate(this.doc)
+      // We convert to hex for PostgreSQL bytea if necessary, or let supabase-js handle it
+      // Supabase-js usually handles Uint8Array -> bytea correctly
+      const { error } = await this.supabase
+        .from('Room')
+        .update({ content: Array.from(content) })
+        .eq('id', this.config.roomId)
+
+      if (error) {
+        console.error('Failed to save room content:', error)
+      }
+    } catch (e) {
+      console.error('Error during save:', e)
+    }
+  }
+
   connect() {
     if (this.channel) return
 
@@ -79,7 +136,6 @@ export class SupabaseProvider {
         applyAwarenessUpdate(this.awareness, update, this)
       })
       .on('broadcast', { event: 'request-sync' }, () => {
-        // Send our state vector so the requester can sync
         const state = Y.encodeStateAsUpdate(this.doc)
         this.channel?.send({
           type: 'broadcast',
@@ -87,7 +143,6 @@ export class SupabaseProvider {
           payload: { update: Array.from(state) }
         })
 
-        // Also broadcast awareness state
         if (this.awareness.getLocalState() !== null) {
           const awarenessUpdate = encodeAwarenessUpdate(this.awareness, [this.doc.clientID])
           this.channel?.send({
@@ -103,14 +158,12 @@ export class SupabaseProvider {
           this.emit('status', [{ status: 'connected' }])
           this.emit('sync', true)
           
-          // Request current state from other peers
           this.channel?.send({
             type: 'broadcast',
             event: 'request-sync',
             payload: {}
           })
           
-          // Broadcast our local awareness
           if (this.awareness.getLocalState() !== null) {
             const awarenessUpdate = encodeAwarenessUpdate(this.awareness, [this.doc.clientID])
             this.channel?.send({
@@ -128,12 +181,20 @@ export class SupabaseProvider {
   }
 
   onDocumentUpdate(update: Uint8Array, origin: any) {
+    if (origin === 'initial-fetch') return;
+
     if (origin !== this && this.channel) {
       this.channel.send({
         type: 'broadcast',
         event: 'update',
         payload: { update: Array.from(update) }
       })
+
+      // Schedule a save to DB (debounced)
+      if (this._saveTimeout) clearTimeout(this._saveTimeout);
+      this._saveTimeout = setTimeout(() => {
+        this.saveToDatabase();
+      }, this.config.saveInterval || 5000);
     }
   }
 
@@ -164,6 +225,10 @@ export class SupabaseProvider {
   }
 
   destroy() {
+    this._isDestroyed = true;
+    if (this._saveTimeout) clearTimeout(this._saveTimeout);
+    this.saveToDatabase(); // Final save
+    
     this.doc.off('update', this.onDocumentUpdate)
     this.awareness.off('update', this.onAwarenessUpdate)
     if (typeof window !== 'undefined') {
