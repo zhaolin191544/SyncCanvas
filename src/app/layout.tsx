@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SyncCanvas - Collaborative Whiteboard",
+  title: "SyncCanvas-在线实时协作白板",
   description: "Real-time collaborative whiteboard with CRDT sync",
 };
 
