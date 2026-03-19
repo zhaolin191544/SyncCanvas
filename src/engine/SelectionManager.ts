@@ -92,6 +92,9 @@ export class SelectionManager {
       if (el.points) {
         el.points = el.points.map(p => [p[0] + dx, p[1] + dy])
       }
+      if (el.controlPoints) {
+        el.controlPoints = el.controlPoints.map(p => [p[0] + dx, p[1] + dy])
+      }
     }
   }
 

@@ -12,15 +12,34 @@ export function hitTestElement(point: Point, el: CanvasElement): boolean {
     case 'ellipse':
       return isPointInEllipse(point, { x: el.x, y: el.y, width: el.width, height: el.height })
     case 'line':
-    case 'arrow':
-      return isPointNearLine(
-        point,
-        { x: el.x, y: el.y },
-        { x: el.x + el.width, y: el.y + el.height },
-        Math.max(5, el.strokeWidth),
-      )
-    case 'freehand':
-      return el.points ? isPointNearFreehand(point, el.points, Math.max(5, el.strokeWidth)) : false
+    case 'arrow': {
+      // First check bounding box for easier selection
+      const bounds = getElementBounds(el)
+      const padding = Math.max(10, el.strokeWidth * 2)
+      if (isPointInRect(point, {
+        x: bounds.x - padding,
+        y: bounds.y - padding,
+        width: bounds.width + padding * 2,
+        height: bounds.height + padding * 2,
+      })) {
+        return true
+      }
+      return false
+    }
+    case 'freehand': {
+      // First check bounding box for easier selection
+      const fBounds = getElementBounds(el)
+      const fPadding = Math.max(10, el.strokeWidth * 2)
+      if (isPointInRect(point, {
+        x: fBounds.x - fPadding,
+        y: fBounds.y - fPadding,
+        width: fBounds.width + fPadding * 2,
+        height: fBounds.height + fPadding * 2,
+      })) {
+        return true
+      }
+      return false
+    }
     default:
       return false
   }

@@ -1,20 +1,22 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { CanvasElement } from '@/types/elements'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Square, 
-  Circle, 
-  Minus, 
-  ArrowUpRight, 
-  Pencil, 
-  Type, 
+import {
+  Square,
+  Circle,
+  Minus,
+  ArrowUpRight,
+  Pencil,
+  Type,
   Image as ImageIcon,
   Eye,
   EyeOff,
   Trash2,
-  Layers as LayersIcon
+  Layers as LayersIcon,
+  PenLine
 } from 'lucide-react'
 
 interface ElementListProps {
@@ -41,9 +43,18 @@ const TypeIcon = ({ type, size = 14 }: { type: string, size?: number }) => {
 export default function ElementList({ elements, selectedIds, onSelect, onUpdate, onDelete }: ElementListProps) {
   const { t } = useLanguage()
   const sortedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingId && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editingId])
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ x: 300 }} animate={{ x: 0 }} exit={{ x: 300 }}
       className="flex flex-col h-[calc(100vh-48px)] bg-white/90 backdrop-blur-xl w-72 m-6 rounded-3xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.06)] border border-stone-200"
     >
@@ -53,7 +64,7 @@ export default function ElementList({ elements, selectedIds, onSelect, onUpdate,
           <span className="text-[10px] text-stone-400 font-medium">({elements.length})</span>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-auto p-2 space-y-0.5 custom-scrollbar">
         {sortedElements.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center px-6">
@@ -64,6 +75,8 @@ export default function ElementList({ elements, selectedIds, onSelect, onUpdate,
           <AnimatePresence>
             {sortedElements.map((el) => {
               const isSelected = selectedIds.has(el.id)
+              const isEditing = editingId === el.id
+              const displayName = el.name || (t.tools as any)[el.type] || el.type
               return (
                 <motion.div
                   key={el.id} layout
@@ -74,19 +87,41 @@ export default function ElementList({ elements, selectedIds, onSelect, onUpdate,
                   <div className={`shrink-0 ${isSelected ? 'text-stone-400' : 'text-stone-300 group-hover:text-stone-500'}`}>
                     <TypeIcon type={el.type} />
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
-                    <input
-                      className={`w-full bg-transparent border-none outline-none text-xs font-medium truncate
-                        ${isSelected ? 'text-white' : 'text-stone-700'}`}
-                      value={el.name || (t.tools as any)[el.type] || el.type}
-                      onChange={(e) => onUpdate(el.id, { name: e.target.value })}
-                      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                    {isEditing ? (
+                      <input
+                        ref={inputRef}
+                        className={`w-full bg-transparent border-none outline-none text-xs font-medium truncate
+                          ${isSelected ? 'text-white' : 'text-stone-700'}`}
+                        defaultValue={displayName}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim()
+                          if (val && val !== displayName) onUpdate(el.id, { name: val })
+                          setEditingId(null)
+                        }}
+                        onKeyDown={(e) => {
+                          e.stopPropagation()
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                          if (e.key === 'Escape') setEditingId(null)
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className={`block text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-stone-700'}`}>
+                        {displayName}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingId(el.id) }}
+                      className={`p-1 rounded-md transition-colors ${isSelected ? 'hover:bg-white/10' : 'hover:bg-white'}`}
+                      title="Rename"
+                    >
+                      <PenLine size={12} />
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); onUpdate(el.id, { visible: el.visible === false }) }}
                       className={`p-1 rounded-md transition-colors ${isSelected ? 'hover:bg-white/10' : 'hover:bg-white'}`}

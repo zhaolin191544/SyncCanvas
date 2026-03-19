@@ -303,7 +303,8 @@ export class InputHandler {
           x: el.x + 20,
           y: el.y + 20,
           zIndex: this.engine.getNextZIndex(),
-          points: el.points ? el.points.map(p => [...p]) : undefined,
+          points: el.points ? el.points.map(p => [p[0] + 20, p[1] + 20]) : undefined,
+          controlPoints: el.controlPoints ? el.controlPoints.map(p => [p[0] + 20, p[1] + 20]) : undefined,
         }
         this.engine.addElement(newEl)
         duplicated.push(newEl)

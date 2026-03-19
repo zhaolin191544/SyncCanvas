@@ -41,6 +41,7 @@ export default function BoardContent({ roomId }: BoardContentProps) {
   const [editingText, setEditingText] = useState<{ element: CanvasElement; screenPos: Point } | null>(null)
   const [zoomLevel, setZoomLevel] = useState(100)
   const [propVersion, setPropVersion] = useState(0)
+  const [listVersion, setListVersion] = useState(0)
   const [eraserSize, setEraserSize] = useState(20)
   const [isPresenting, setIsPresenting] = useState(false)
   const [showElementList, setShowElementList] = useState(false)
@@ -99,9 +100,11 @@ export default function BoardContent({ roomId }: BoardContentProps) {
     },
     onElementCreated: (element) => {
       addElement(element)
+      setListVersion(v => v + 1)
     },
     onElementsDeleted: (ids) => {
       deleteElements(ids)
+      setListVersion(v => v + 1)
     },
     onElementsMoved: (ids) => {
       syncSelectedElements(ids)
@@ -111,12 +114,15 @@ export default function BoardContent({ roomId }: BoardContentProps) {
     },
     onUndo: () => {
       undo()
+      setListVersion(v => v + 1)
     },
     onRedo: () => {
       redo()
+      setListVersion(v => v + 1)
     },
     onDuplicate: (elements) => {
       for (const el of elements) addElement(el)
+      setListVersion(v => v + 1)
     },
   })
 
@@ -384,19 +390,21 @@ export default function BoardContent({ roomId }: BoardContentProps) {
               updateSelection(Array.from(engineRef.current.selection.selectedIds)); 
               engineRef.current.markDirty() 
             }} 
-            onUpdate={(id, updates) => { 
-              updateElement(id, updates); 
-              if(engineRef.current) { 
-                const el = engineRef.current.elements.get(id); 
-                if(el) { Object.assign(el, updates); engineRef.current.markDirty() } 
-              } 
-            }} 
-            onDelete={(id) => { 
-              deleteElements([id]); 
-              if(engineRef.current) { 
-                engineRef.current.removeElement(id); 
-                engineRef.current.markDirty() 
-              } 
+            onUpdate={(id, updates) => {
+              updateElement(id, updates);
+              if(engineRef.current) {
+                const el = engineRef.current.elements.get(id);
+                if(el) { Object.assign(el, updates); engineRef.current.markDirty() }
+              }
+              setListVersion(v => v + 1)
+            }}
+            onDelete={(id) => {
+              deleteElements([id]);
+              if(engineRef.current) {
+                engineRef.current.removeElement(id);
+                engineRef.current.markDirty()
+              }
+              setListVersion(v => v + 1)
             }} 
           />
         )}
