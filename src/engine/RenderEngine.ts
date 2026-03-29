@@ -186,6 +186,16 @@ export class RenderEngine {
   private drawElement(ctx: CanvasRenderingContext2D, el: CanvasElement) {
     if (el.visible === false) return
     ctx.save()
+
+    if (el.rotation) {
+      const bounds = getElementBounds(el)
+      const centerX = bounds.x + bounds.width / 2
+      const centerY = bounds.y + bounds.height / 2
+      ctx.translate(centerX, centerY)
+      ctx.rotate(el.rotation)
+      ctx.translate(-centerX, -centerY)
+    }
+
     switch (el.type) {
       case 'rectangle': drawRectangle(ctx, el); break
       case 'ellipse': drawEllipse(ctx, el); break

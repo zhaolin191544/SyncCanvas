@@ -553,10 +553,8 @@ export class InputHandler {
       const el = this.engine.elements.get(selectedId)
       if (el) {
         if (hitTestRotationHandle(worldPos, el, this.engine.camera.zoom)) {
-          if (this.isRotating === undefined) { // In mouseDown
-             this.isRotating = true
-             this.dragStartWorld = { ...worldPos }
-          }
+          this.isRotating = true
+          this.dragStartWorld = { ...worldPos }
           this.engine.canvas.style.cursor = 'alias'
           return
         }
@@ -668,10 +666,6 @@ export class InputHandler {
           return
         }
         if (hitTestRotationHandle(worldPos, el, this.engine.camera.zoom)) {
-          if (this.isRotating === undefined) { // In mouseDown
-             this.isRotating = true
-             this.dragStartWorld = { ...worldPos }
-          }
           this.engine.canvas.style.cursor = 'alias'
           return
         }

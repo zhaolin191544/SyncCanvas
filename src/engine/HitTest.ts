@@ -4,19 +4,34 @@ import { isPointInRect, isPointInEllipse, isPointNearLine, isPointNearFreehand, 
 const HANDLE_SIZE = 8
 
 export function hitTestElement(point: Point, el: CanvasElement): boolean {
+  let p = point
+  if (el.rotation) {
+    const bounds = getElementBounds(el)
+    const cx = bounds.x + bounds.width / 2
+    const cy = bounds.y + bounds.height / 2
+    const cos = Math.cos(-el.rotation)
+    const sin = Math.sin(-el.rotation)
+    const dx = point.x - cx
+    const dy = point.y - cy
+    p = {
+      x: cos * dx - sin * dy + cx,
+      y: sin * dx + cos * dy + cy,
+    }
+  }
+
   switch (el.type) {
     case 'rectangle':
     case 'text':
     case 'image':
-      return isPointInRect(point, { x: el.x, y: el.y, width: el.width, height: el.height })
+      return isPointInRect(p, { x: el.x, y: el.y, width: el.width, height: el.height })
     case 'ellipse':
-      return isPointInEllipse(point, { x: el.x, y: el.y, width: el.width, height: el.height })
+      return isPointInEllipse(p, { x: el.x, y: el.y, width: el.width, height: el.height })
     case 'line':
     case 'arrow': {
       // First check bounding box for easier selection
       const bounds = getElementBounds(el)
       const padding = Math.max(10, el.strokeWidth * 2)
-      if (isPointInRect(point, {
+      if (isPointInRect(p, {
         x: bounds.x - padding,
         y: bounds.y - padding,
         width: bounds.width + padding * 2,
@@ -30,7 +45,7 @@ export function hitTestElement(point: Point, el: CanvasElement): boolean {
       // First check bounding box for easier selection
       const fBounds = getElementBounds(el)
       const fPadding = Math.max(10, el.strokeWidth * 2)
-      if (isPointInRect(point, {
+      if (isPointInRect(p, {
         x: fBounds.x - fPadding,
         y: fBounds.y - fPadding,
         width: fBounds.width + fPadding * 2,

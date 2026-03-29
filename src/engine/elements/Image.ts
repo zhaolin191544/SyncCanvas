@@ -21,15 +21,7 @@ export function drawImage(ctx: CanvasRenderingContext2D, el: CanvasElement) {
   if (img.complete && img.naturalWidth > 0) {
     ctx.save()
     ctx.globalAlpha = el.opacity
-    
-    if (el.rotation) {
-      ctx.translate(el.x + el.width / 2, el.y + el.height / 2)
-      ctx.rotate(el.rotation)
-      ctx.drawImage(img, -el.width / 2, -el.height / 2, el.width, el.height)
-    } else {
-      ctx.drawImage(img, el.x, el.y, el.width, el.height)
-    }
-    
+    ctx.drawImage(img, el.x, el.y, el.width, el.height)
     ctx.restore()
   } else {
     // Draw placeholder while loading
